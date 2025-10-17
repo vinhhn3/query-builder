@@ -23,7 +23,7 @@
     "build": "react-scripts build",
     "test": "react-scripts test",
     "eject": "react-scripts eject",
-    "homepage": "https://vinhhn3.github.io/sql-query-builder",
+    "homepage": "https://vinhhn3.github.io/query-builder",
     "predeploy": "npm run build",
     "deploy": "gh-pages -d build"
   },
