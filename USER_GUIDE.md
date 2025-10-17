@@ -184,17 +184,21 @@ The ERD (Entity Relationship Diagram) feature provides a visual representation o
 - **Primary Keys**: Highlighted in yellow with 🔑 icon
 - **Interactive Navigation**:
   - Mouse wheel to zoom in/out
-  - Click and drag to pan around the diagram
+  - Click and drag empty space to pan around the diagram
   - Click tables to highlight/select them
+  - **Drag individual tables to rearrange** for better visualization
 - **Zoom Controls**: +/- buttons and reset view option
+- **Layout Controls**: Reset tables to grid layout or reset zoom/pan separately
 - **Export**: Download the diagram as SVG for documentation
 
 **How to Use ERD:**
 
 1. Load your schema
 2. Click the "📊 ERD Diagram" tab in the middle panel
-3. Use mouse wheel to zoom, click and drag to pan
-4. Click "💾 Export" to save the diagram
+3. Use mouse wheel to zoom, click and drag empty space to pan
+4. **Drag tables** to arrange them for optimal clarity
+5. Click "↺ Reset Layout" to return tables to grid layout
+6. Click "💾 Export" to save the diagram
 
 ## Schema Format
 

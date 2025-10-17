@@ -11,6 +11,8 @@ const ERDiagram = () => {
   const [pan, setPan] = useState({ x: 0, y: 0 });
   const [isDragging, setIsDragging] = useState(false);
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
+  const [draggingTable, setDraggingTable] = useState(null);
+  const [tablePositions, setTablePositions] = useState({});
 
   // Parse foreign key relationships from schema
   useEffect(() => {
@@ -44,19 +46,34 @@ const ERDiagram = () => {
     setRelationships(rels);
   }, [schema]);
 
-  // Calculate table positions in a grid layout
-  const getTablePosition = (index, total) => {
-    const cols = Math.ceil(Math.sqrt(total));
-    const row = Math.floor(index / cols);
-    const col = index % cols;
-    const spacing = 300;
-    const startX = 50;
-    const startY = 50;
+  // Initialize table positions in a grid layout
+  useEffect(() => {
+    if (tables.length === 0) return;
 
-    return {
-      x: startX + col * spacing,
-      y: startY + row * spacing,
-    };
+    setTablePositions((prevPositions) => {
+      const newPositions = { ...prevPositions };
+      tables.forEach((table, index) => {
+        if (!newPositions[table.name]) {
+          const cols = Math.ceil(Math.sqrt(tables.length));
+          const row = Math.floor(index / cols);
+          const col = index % cols;
+          const spacing = 300;
+          const startX = 50;
+          const startY = 50;
+
+          newPositions[table.name] = {
+            x: startX + col * spacing,
+            y: startY + row * spacing,
+          };
+        }
+      });
+      return newPositions;
+    });
+  }, [tables]);
+
+  // Get table position (from custom positions or default grid)
+  const getTablePosition = (tableName) => {
+    return tablePositions[tableName] || { x: 0, y: 0 };
   };
 
   // Handle mouse wheel for zoom
@@ -66,7 +83,7 @@ const ERDiagram = () => {
     setZoom((prev) => Math.max(0.3, Math.min(2, prev * delta)));
   };
 
-  // Handle pan
+  // Handle canvas pan
   const handleMouseDown = (e) => {
     if (e.target.tagName === "svg") {
       setIsDragging(true);
@@ -75,16 +92,47 @@ const ERDiagram = () => {
   };
 
   const handleMouseMove = (e) => {
-    if (isDragging) {
+    if (isDragging && !draggingTable) {
       setPan({
         x: e.clientX - dragStart.x,
         y: e.clientY - dragStart.y,
       });
+    } else if (draggingTable) {
+      // Calculate mouse position in SVG coordinates
+      const svgRect = canvasRef.current.getBoundingClientRect();
+      const svgX = (e.clientX - svgRect.left - pan.x) / zoom;
+      const svgY = (e.clientY - svgRect.top - pan.y) / zoom;
+
+      setTablePositions((prev) => ({
+        ...prev,
+        [draggingTable]: {
+          x: svgX - dragStart.offsetX,
+          y: svgY - dragStart.offsetY,
+        },
+      }));
     }
   };
 
   const handleMouseUp = () => {
     setIsDragging(false);
+    setDraggingTable(null);
+  };
+
+  // Handle table drag start
+  const handleTableMouseDown = (e, tableName) => {
+    e.stopPropagation();
+    const pos = getTablePosition(tableName);
+
+    // Calculate mouse position in SVG coordinates
+    const svgRect = canvasRef.current.getBoundingClientRect();
+    const svgX = (e.clientX - svgRect.left - pan.x) / zoom;
+    const svgY = (e.clientY - svgRect.top - pan.y) / zoom;
+
+    setDraggingTable(tableName);
+    setDragStart({
+      offsetX: svgX - pos.x,
+      offsetY: svgY - pos.y,
+    });
   };
 
   // Export as SVG
@@ -105,18 +153,20 @@ const ERDiagram = () => {
 
   // Draw relationship line
   const drawRelationship = (rel) => {
-    const fromIndex = tables.findIndex((t) => t.name === rel.fromTable);
-    const toIndex = tables.findIndex((t) => t.name === rel.toTable);
+    const fromTable = tables.find((t) => t.name === rel.fromTable);
+    const toTable = tables.find((t) => t.name === rel.toTable);
 
-    if (fromIndex === -1 || toIndex === -1) return null;
+    if (!fromTable || !toTable) return null;
 
-    const fromPos = getTablePosition(fromIndex, tables.length);
-    const toPos = getTablePosition(toIndex, tables.length);
+    const fromPos = getTablePosition(rel.fromTable);
+    const toPos = getTablePosition(rel.toTable);
+
+    const fromTableHeight = 30 + fromTable.columns.length * 25;
 
     const fromX = fromPos.x + 125; // Half of table width
-    const fromY = fromPos.y + 150; // Approximate table height
+    const fromY = fromPos.y + fromTableHeight; // Bottom of table
     const toX = toPos.x + 125;
-    const toY = toPos.y;
+    const toY = toPos.y; // Top of table
 
     // Create curved path
     const midY = (fromY + toY) / 2;
@@ -185,7 +235,16 @@ const ERDiagram = () => {
             }}
             title="Reset View"
           >
-            🔄 Reset
+            🔄 Reset View
+          </button>
+          <button
+            style={styles.controlButton}
+            onClick={() => {
+              setTablePositions({});
+            }}
+            title="Reset Table Positions"
+          >
+            ↺ Reset Layout
           </button>
           <button
             style={styles.exportButton}
@@ -210,7 +269,12 @@ const ERDiagram = () => {
           style={{
             width: "100%",
             height: "100%",
-            cursor: isDragging ? "grabbing" : "grab",
+            cursor:
+              isDragging && !draggingTable
+                ? "grabbing"
+                : draggingTable
+                ? "grabbing"
+                : "grab",
           }}
           viewBox={`${-pan.x / zoom} ${-pan.y / zoom} ${1000 / zoom} ${
             600 / zoom
@@ -233,16 +297,24 @@ const ERDiagram = () => {
           {relationships.map((rel) => drawRelationship(rel))}
 
           {/* Draw tables */}
-          {tables.map((table, index) => {
-            const pos = getTablePosition(index, tables.length);
+          {tables.map((table) => {
+            const pos = getTablePosition(table.name);
             const isSelected = selectedTable === table.name;
+            const isBeingDragged = draggingTable === table.name;
 
             return (
               <g
                 key={table.name}
                 transform={`translate(${pos.x}, ${pos.y})`}
-                onClick={() => setSelectedTable(isSelected ? null : table.name)}
-                style={{ cursor: "pointer" }}
+                onMouseDown={(e) => handleTableMouseDown(e, table.name)}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setSelectedTable(isSelected ? null : table.name);
+                }}
+                style={{
+                  cursor: isBeingDragged ? "grabbing" : "move",
+                  opacity: isBeingDragged ? 0.7 : 1,
+                }}
               >
                 {/* Table shadow */}
                 <rect
@@ -338,6 +410,9 @@ const ERDiagram = () => {
             <span style={styles.legendText}>
               {tables.length} Tables • {relationships.length} Relationships
             </span>
+          </div>
+          <div style={styles.legendItem}>
+            <span style={styles.legendText}>💡 Drag tables to rearrange</span>
           </div>
         </div>
       </div>
