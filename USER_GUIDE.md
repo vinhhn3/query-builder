@@ -14,6 +14,7 @@ A visual SQL query builder that allows users to construct SQL statements through
 ✅ **Real-time SQL Generation**: See your SQL update as you build
 ✅ **Inline Editing**: No modal dialogs - all editing happens inline
 ✅ **Export SQL**: Copy or download generated SQL queries
+✅ **ERD Visualization**: Interactive Entity Relationship Diagram with zoom, pan, and export
 
 ## Installation
 
@@ -47,21 +48,34 @@ When you first open the application, you'll see a schema input screen. You can:
 
 ### 2. Building Queries
 
-The interface is divided into three panels:
+The interface is divided into three main areas:
 
-#### Left Panel - Tables
+#### Left Panel - Tables & Schema
 
+- **Schema Input**: Collapsible section to load/edit schema
 - Shows all tables from your schema
 - Click the arrow to expand and see columns
 - Drag tables to the FROM or JOIN sections
 - Drag columns to SELECT, WHERE, GROUP BY, or ORDER BY sections
 
-#### Middle Panel - Query Builder
+#### Middle Panel - Query Builder / ERD
+
+**Two Tabs Available:**
+
+**🔧 Query Builder Tab:**
 
 - Select query type: SELECT, INSERT, UPDATE, or DELETE
 - Drag and drop elements from the left panel
 - Configure options inline (aliases, operators, functions)
 - Each section has a colored header for easy identification
+
+**📊 ERD Diagram Tab:**
+
+- Visual representation of database schema
+- Shows tables, columns, and relationships
+- Interactive zoom and pan controls
+- Click tables to highlight them
+- Export diagram as SVG
 
 #### Right Panel - SQL Output
 
@@ -158,6 +172,29 @@ When you remove a table from the FROM section, all related elements are automati
 - JOINs involving that table
 - WHERE conditions referencing that table
 - GROUP BY and ORDER BY clauses using that table's columns
+
+#### ERD Visualization
+
+The ERD (Entity Relationship Diagram) feature provides a visual representation of your database:
+
+**Features:**
+
+- **Visual Schema**: See all tables, columns, and data types at a glance
+- **Relationships**: Foreign key relationships displayed with connecting lines
+- **Primary Keys**: Highlighted in yellow with 🔑 icon
+- **Interactive Navigation**:
+  - Mouse wheel to zoom in/out
+  - Click and drag to pan around the diagram
+  - Click tables to highlight/select them
+- **Zoom Controls**: +/- buttons and reset view option
+- **Export**: Download the diagram as SVG for documentation
+
+**How to Use ERD:**
+
+1. Load your schema
+2. Click the "📊 ERD Diagram" tab in the middle panel
+3. Use mouse wheel to zoom, click and drag to pan
+4. Click "💾 Export" to save the diagram
 
 ## Schema Format
 
