@@ -1,4 +1,5 @@
 import { useDroppable } from "@dnd-kit/core";
+import { useEffect, useState } from "react";
 import useQueryStore from "../store/queryStore";
 
 const QueryBuilder = () => {
@@ -391,32 +392,173 @@ const FieldChip = ({ table, column, onRemove }) => (
   </div>
 );
 
-const JoinItem = ({ join, onRemove, onChange }) => (
-  <div style={styles.editableField}>
-    <select
-      style={styles.select}
-      value={join.type || "INNER"}
-      onChange={(e) => onChange({ type: e.target.value })}
-    >
-      <option value="INNER">INNER</option>
-      <option value="LEFT">LEFT</option>
-      <option value="RIGHT">RIGHT</option>
-      <option value="FULL">FULL</option>
-      <option value="CROSS">CROSS</option>
-    </select>
-    <span style={styles.fieldLabel}>{join.table}</span>
-    <input
-      type="text"
-      style={{ ...styles.input, flex: 2 }}
-      placeholder="ON condition (e.g., table1.id = table2.id)"
-      value={join.condition || ""}
-      onChange={(e) => onChange({ condition: e.target.value })}
-    />
-    <button style={styles.removeButton} onClick={onRemove}>
-      ×
-    </button>
-  </div>
-);
+const JoinItem = ({ join, onRemove, onChange }) => {
+  const tables = useQueryStore((state) => state.tables);
+  const fromTables = useQueryStore((state) => state.fromTables);
+  const joins = useQueryStore((state) => state.joins);
+
+  // Get available tables (FROM table + all JOIN tables)
+  const allJoinTables = joins.map((j) => j.table);
+  const availableTables = [...fromTables.map((t) => t.table), ...allJoinTables];
+
+  // Get columns for the join condition dropdowns
+  const getColumnsForTable = (tableName) => {
+    const table = tables.find((t) => t.name === tableName);
+    return table ? table.columns : [];
+  };
+
+  // Parse current condition if it exists (e.g., "users.id = orders.user_id")
+  const parseCondition = (condition) => {
+    if (!condition)
+      return {
+        leftTable: "",
+        leftColumn: "",
+        operator: "=",
+        rightTable: "",
+        rightColumn: "",
+      };
+
+    const match = condition.match(
+      /(\w+)\.(\w+)\s*(=|!=|>|<|>=|<=)\s*(\w+)\.(\w+)/
+    );
+    if (match) {
+      return {
+        leftTable: match[1],
+        leftColumn: match[2],
+        operator: match[3],
+        rightTable: match[4],
+        rightColumn: match[5],
+      };
+    }
+    return {
+      leftTable: "",
+      leftColumn: "",
+      operator: "=",
+      rightTable: "",
+      rightColumn: "",
+    };
+  };
+
+  // Initialize local state from the join condition
+  const [localCondition, setLocalCondition] = useState(() =>
+    parseCondition(join.condition)
+  );
+
+  // Sync local state when join.condition changes externally
+  useEffect(() => {
+    const parsed = parseCondition(join.condition);
+    setLocalCondition(parsed);
+  }, [join.condition]);
+
+  const updateCondition = (updates) => {
+    const newParts = { ...localCondition, ...updates };
+    setLocalCondition(newParts);
+
+    // Build the condition string if all required parts are present
+    if (
+      newParts.leftTable &&
+      newParts.leftColumn &&
+      newParts.rightTable &&
+      newParts.rightColumn
+    ) {
+      const condition = `${newParts.leftTable}.${newParts.leftColumn} ${newParts.operator} ${newParts.rightTable}.${newParts.rightColumn}`;
+      onChange({ condition });
+    }
+  };
+
+  return (
+    <div style={styles.editableField}>
+      <select
+        style={styles.select}
+        value={join.type || "INNER"}
+        onChange={(e) => onChange({ type: e.target.value })}
+      >
+        <option value="INNER">INNER</option>
+        <option value="LEFT">LEFT</option>
+        <option value="RIGHT">RIGHT</option>
+        <option value="FULL">FULL</option>
+        <option value="CROSS">CROSS</option>
+      </select>
+      <span style={styles.fieldLabel}>
+        {join.table} <span style={styles.idBadge}>#{join.id.slice(0, 6)}</span>
+      </span>
+      <div style={styles.joinConditionContainer}>
+        <span style={styles.joinLabel}>ON</span>
+        <select
+          style={styles.selectSmall}
+          value={localCondition.leftTable}
+          onChange={(e) =>
+            updateCondition({ leftTable: e.target.value, leftColumn: "" })
+          }
+        >
+          <option value="">Table</option>
+          {availableTables.map((t) => (
+            <option key={t} value={t}>
+              {t}
+            </option>
+          ))}
+        </select>
+        <select
+          style={styles.selectSmall}
+          value={localCondition.leftColumn}
+          onChange={(e) => updateCondition({ leftColumn: e.target.value })}
+          disabled={!localCondition.leftTable}
+        >
+          <option value="">Column</option>
+          {localCondition.leftTable &&
+            getColumnsForTable(localCondition.leftTable).map((col) => (
+              <option key={col.name} value={col.name}>
+                {col.name}
+              </option>
+            ))}
+        </select>
+        <select
+          style={styles.selectSmall}
+          value={localCondition.operator}
+          onChange={(e) => updateCondition({ operator: e.target.value })}
+        >
+          <option value="=">=</option>
+          <option value="!=">!=</option>
+          <option value=">">&gt;</option>
+          <option value="<">&lt;</option>
+          <option value=">=">&gt;=</option>
+          <option value="<=">&lt;=</option>
+        </select>
+        <select
+          style={styles.selectSmall}
+          value={localCondition.rightTable}
+          onChange={(e) =>
+            updateCondition({ rightTable: e.target.value, rightColumn: "" })
+          }
+        >
+          <option value="">Table</option>
+          {availableTables.map((t) => (
+            <option key={t} value={t}>
+              {t}
+            </option>
+          ))}
+        </select>
+        <select
+          style={styles.selectSmall}
+          value={localCondition.rightColumn}
+          onChange={(e) => updateCondition({ rightColumn: e.target.value })}
+          disabled={!localCondition.rightTable}
+        >
+          <option value="">Column</option>
+          {localCondition.rightTable &&
+            getColumnsForTable(localCondition.rightTable).map((col) => (
+              <option key={col.name} value={col.name}>
+                {col.name}
+              </option>
+            ))}
+        </select>
+      </div>
+      <button style={styles.removeButton} onClick={onRemove}>
+        ×
+      </button>
+    </div>
+  );
+};
 
 const WhereCondition = ({ condition, showLogic, onRemove, onChange }) => (
   <div style={styles.editableField}>
@@ -681,6 +823,35 @@ const styles = {
     fontSize: "12px",
     cursor: "pointer",
     whiteSpace: "nowrap",
+  },
+  idBadge: {
+    fontSize: "10px",
+    padding: "2px 6px",
+    backgroundColor: "#6c757d",
+    color: "white",
+    borderRadius: "10px",
+    fontWeight: "normal",
+    marginLeft: "4px",
+  },
+  joinConditionContainer: {
+    display: "flex",
+    alignItems: "center",
+    gap: "6px",
+    flex: 1,
+    flexWrap: "wrap",
+  },
+  joinLabel: {
+    fontSize: "12px",
+    fontWeight: "600",
+    color: "#6c757d",
+  },
+  selectSmall: {
+    padding: "4px 8px",
+    border: "1px solid #ced4da",
+    borderRadius: "4px",
+    fontSize: "12px",
+    backgroundColor: "white",
+    minWidth: "80px",
   },
 };
 
